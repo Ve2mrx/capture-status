@@ -32,6 +32,16 @@ overall_ok=1
 ok()   { printf "  %s%-4s%s %s\n" "$GREEN" "OK" "$RESET" "$1"; }
 fail() { printf "  %s%-4s%s %s\n" "$RED" "FAIL" "$RESET" "$1"; overall_ok=0; }
 
+# Colors a SiT5721 flag value green if it's the healthy one (good/stabilized),
+# red otherwise (ERROR/unstabilized) - so a bad flag stands out rather than
+# blending in with the neutral text around it.
+flag_color() {
+	case "$1" in
+		good|stabilized) printf '%s%s%s' "$GREEN" "$1" "$RESET" ;;
+		*)               printf '%s%s%s' "$RED" "$1" "$RESET" ;;
+	esac
+}
+
 check_unit() {
 	local unit="$1" label="$2"
 	local state
@@ -57,8 +67,8 @@ if [ -f "$SAVE_STATUS_FILE" ]; then
 	total=$(grep "Total offset written" "$SAVE_STATUS_FILE" | head -1 | sed 's/^[^0-9+-]*//')
 	err=$(grep "Error status flag" "$SAVE_STATUS_FILE" | head -1 | awk '{print $NF}')
 	stab=$(grep "Stability flag" "$SAVE_STATUS_FILE" | head -1 | awk '{print $NF}')
-	printf "       Pull %s, Total %s, %s%s%s/%s (%sm ago)\n" \
-		"$pull" "$total" "$CYAN" "$err" "$RESET" "$stab" "$age_min"
+	printf "       Pull %s, Total %s, %s/%s (%sm ago)\n" \
+		"$pull" "$total" "$(flag_color "$err")" "$(flag_color "$stab")" "$age_min"
 else
 	fail "save status file missing ($SAVE_STATUS_FILE)"
 fi
