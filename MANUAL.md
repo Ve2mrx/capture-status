@@ -44,8 +44,13 @@ Exits `0` for GO, `1` for NO-GO. Checks, in order:
   `interval`) — a `STALE` result means a reboot *right now* would need
   manual TOW entry (see mbt-ubx-apps' project memory
   `restart-calib-manual-tow`), not that anything is currently broken.
-- Last ~10 lines of the `SiT-calib` screen's terminal output, via
+- Last ~6 lines of the `SiT-calib` screen's terminal output, via
   `screen -S SiT-calib -X hardcopy` (a snapshot, no need to attach).
+
+Output is sized for an 80x24 terminal (~22 lines, no line over 80 columns)
+and colorized (green OK / red FAIL / yellow STALE) when run interactively.
+Colors auto-disable when output is piped/redirected (not a tty) or when
+`NO_COLOR` is set (https://no-color.org).
 
 ## Key files/paths
 
