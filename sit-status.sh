@@ -83,8 +83,11 @@ with open('$CALIB_STATEFILE') as f:
     d = json.load(f)
 saved_at = datetime.fromisoformat(d['saved_at'])
 age = (datetime.now(timezone.utc) - saved_at).total_seconds()
+h, rem = divmod(int(age), 3600)
+m, s = divmod(rem, 60)
+age_str = f'{h}h{m:02d}m{s:02d}s'
 note = 'fresh' if age <= d['interval'] else 'STALE - reboot now needs manual TOW'
-print(f\"TOW {d['TOW_selected']} (week {d['week']}), saved {age / 3600:.1f}h ago, {note}\")
+print(f\"TOW {d['TOW_selected']} (week {d['week']}), saved {age_str} ago, {note}\")
 ")
 	state_line="${state_line/STALE/${YELLOW}STALE${RESET}}"
 	printf "       %s\n" "$state_line"
