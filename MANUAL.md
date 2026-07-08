@@ -60,6 +60,29 @@ Colors auto-disable when output is piped/redirected (not a tty) or when
 | `~/project/SiT5721/SiT-save_status.txt` | Read for the last save snapshot |
 | `~/SiT-calib_state.json` | Read for capture-state freshness |
 
+## Known issues / troubleshooting log
+
+**2026-07-08 — stale `systemctl is-failed` state produced a false FAIL
+after an already-resolved incident.** `restart-calib.service` and
+`restart-calib-alert.service` had genuinely failed at boot on
+2026-07-06 (the i2c-dev-not-loaded-yet incident - see mbt-ubx-apps'
+`MANUAL.md`), but the manual recovery used that night
+(`screen -X -S SiT-calib quit` + `set-calib-screen.sh <TOW>`) bypassed
+`systemctl` entirely, so it fixed the actual capture but never cleared
+the units' failed state. `sit-status.sh` kept reporting
+`FAIL boot-time resume: failed` for the next ~44 hours even though
+capture was healthy the whole time, because `systemctl is-failed`
+reports the *last* run's result, not current health, and nothing had
+restarted those units since. Not a bug in this script's `is-failed`
+design (still the right check for `Type=oneshot` units generally - see
+Usage above) - just a reminder that a failed unit needs an explicit
+`sudo systemctl reset-failed <unit>` after a manual-recovery path that
+doesn't go through `systemctl`, or the FAIL persists until the next
+reboot regardless of actual health. Cleared with:
+```sh
+sudo systemctl reset-failed restart-calib.service restart-calib-alert.service
+```
+
 ## Possible follow-ons
 
 A web dashboard (for remote/phone access) was discussed as a bigger,
