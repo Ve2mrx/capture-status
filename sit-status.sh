@@ -14,6 +14,8 @@
 SIT5721_DIR=~/project/SiT5721
 CALIB_STATEFILE=~/SiT-calib_state.json
 SAVE_STATUS_FILE="$SIT5721_DIR/SiT-save_status.txt"
+HEALTH_JSON=~/sit-health-24h.json
+HEALTH_STALE_MIN=30  # sampler runs every 10m (save-sit5721.timer); 30m allows for one missed run
 
 # Colors only for a real terminal - not when redirected/piped (e.g. into a
 # log or journalctl) and not when NO_COLOR is set (https://no-color.org).
@@ -31,6 +33,12 @@ overall_ok=1
 
 ok()   { printf "  %s%-4s%s %s\n" "$GREEN" "OK" "$RESET" "$1"; }
 fail() { printf "  %s%-4s%s %s\n" "$RED" "FAIL" "$RESET" "$1"; overall_ok=0; }
+# Diagnostic only - does NOT flip overall_ok/GO-NO-GO. Matches
+# claude-code-silent-telemetry-failure-brief.md's own framing: a stale/
+# broken health field is worth surfacing here, but a 10-min sampler blip is
+# not urgent enough to alarm over (that brief explicitly skips email alerts
+# for the same reason).
+warn() { printf "  %s%-4s%s %s\n" "$YELLOW" "WARN" "$RESET" "$1"; }
 
 # Colors a SiT5721 flag value green if it's the healthy one (good/stabilized),
 # red otherwise (ERROR/unstabilized) - so a bad flag stands out rather than
@@ -71,6 +79,47 @@ if [ -f "$SAVE_STATUS_FILE" ]; then
 		"$pull" "$total" "$(flag_color "$err")" "$(flag_color "$stab")" "$age_min"
 else
 	fail "save status file missing ($SAVE_STATUS_FILE)"
+fi
+
+# Health-telemetry check (claude-code-silent-telemetry-failure-brief.md):
+# save-SiT5721.py's 10-min sampler writes cooked trailing-24h stats +
+# per-field "warnings" to $HEALTH_JSON. A field with n==0 while the window
+# has rows is a genuinely broken read (I2C/vcgencmd failure, library
+# change) - see compute_health_window_stats()'s docstring for how that's
+# told apart from a field simply being newer than the window (no false
+# warning right after a HEALTH_LINE_VERSION bump).
+if [ -f "$HEALTH_JSON" ]; then
+	age_min=$(( ($(date +%s) - $(stat -c %Y "$HEALTH_JSON")) / 60 ))
+	if [ "$age_min" -gt "$HEALTH_STALE_MIN" ]; then
+		warn "health telemetry: sit-health-24h.json is ${age_min}m old (sampler runs every 10m - is save-sit5721.timer running?)"
+	else
+		mapfile -t health_lines < <(python3 -c "
+import json
+try:
+    with open('$HEALTH_JSON') as f:
+        d = json.load(f)
+    print(f\"n={d.get('n', 0)} samples over the last 24h\")
+    for w in d.get('warnings', []):
+        print('WARN:' + w)
+except Exception as e:
+    print('WARN:unreadable/malformed: ' + str(e))
+" 2>/dev/null)
+		if [ "${#health_lines[@]}" -eq 0 ]; then
+			warn "health telemetry: sit-health-24h.json unreadable/malformed"
+		else
+			has_warning=0
+			for line in "${health_lines[@]}"; do
+				case "$line" in
+					WARN:*) warn "health telemetry: ${line#WARN:}"; has_warning=1 ;;
+				esac
+			done
+			if [ "$has_warning" -eq 0 ]; then
+				ok "health telemetry: ${health_lines[0]} (${age_min}m ago)"
+			fi
+		fi
+	fi
+else
+	warn "health telemetry: no $HEALTH_JSON yet"
 fi
 
 echo

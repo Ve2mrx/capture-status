@@ -38,6 +38,17 @@ Exits `0` for GO, `1` for NO-GO. Checks, in order:
   from normal oneshot idle state.
 - Last save snapshot (`SiT5721/SiT-save_status.txt`): age + key lines
   (Pull Value, total offset written, error/stability flags).
+- **Since 2026-08-01: health telemetry** (`~/sit-health-24h.json`, written
+  by `save-SiT5721.py`'s 10-min sampler - see `SiT5721/MANUAL.md`). **WARN**
+  (not FAIL) if the file's own `warnings` list is non-empty (a health field
+  reading `n == 0` while the window has data - a broken sensor, not just a
+  quiet one) or if the file is missing or older than `HEALTH_STALE_MIN`
+  (30 min - the sampler runs every 10). Otherwise **OK**, showing `n` and
+  age. Deliberately a WARN, not a FAIL: this is diagnostic (per
+  `ubx-data/claude-code-silent-telemetry-failure-brief.md`, which has no
+  email alert either), so it does **not** affect the overall GO/NO-GO exit
+  code - a stale/broken health field alone should never mask or compete
+  with a real capture/save failure elsewhere in the output.
 - `restart-calib.service` (same `is-failed` reasoning).
 - Whether the `SiT-calib` screen is running (`screen -list`).
 - Capture state freshness (`~/SiT-calib_state.json`'s `saved_at` vs.
@@ -48,9 +59,9 @@ Exits `0` for GO, `1` for NO-GO. Checks, in order:
   `screen -S SiT-calib -X hardcopy` (a snapshot, no need to attach).
 
 Output is sized for an 80x24 terminal (~22 lines, no line over 80 columns)
-and colorized (green OK / red FAIL / yellow STALE) when run interactively.
-Colors auto-disable when output is piped/redirected (not a tty) or when
-`NO_COLOR` is set (https://no-color.org).
+and colorized (green OK / red FAIL / yellow WARN/STALE) when run
+interactively. Colors auto-disable when output is piped/redirected (not a
+tty) or when `NO_COLOR` is set (https://no-color.org).
 
 ## Key files/paths
 
@@ -59,6 +70,7 @@ Colors auto-disable when output is piped/redirected (not a tty) or when
 | `~/bin/sit-status.sh` | Symlink installed by `install.sh` |
 | `~/project/SiT5721/SiT-save_status.txt` | Read for the last save snapshot |
 | `~/SiT-calib_state.json` | Read for capture-state freshness |
+| `~/sit-health-24h.json` | Read for the health-telemetry WARN check (since 2026-08-01) |
 
 ## Known issues / troubleshooting log
 
