@@ -63,11 +63,18 @@ Exits `0` for GO, `1` for NO-GO. Checks, in order:
   is the one that matters: the error log only catches failures that raise,
   while a logger that silently writes nothing leaves only a stale file.
   WARN, not FAIL, for the same reason as health telemetry.
-- Last ~6 lines of the `SiT-calib` screen's terminal output, via
-  `screen -S SiT-calib -X hardcopy` (a snapshot, no need to attach).
+- From the `SiT-calib` screen (`screen -X hardcopy`, a snapshot, no need
+  to attach): **not a raw tail** (since 2026-10-14) - at most 4 lines: the
+  2 latest problem lines (`WARN`/`Error`/`Fatal`/`stopped`/`Terminated`),
+  then the latest "Waiting for TOW" and "Time to go" lines. The raw 6-line
+  tail was mostly per-second `GNSS>>` traffic and wrapped fragments, and
+  pushed the output to 24 rows. Only the visible screen is searched: an
+  error that has scrolled off is not shown (the alert mail and the
+  `*_errors.log` files are the record).
 
-Output is sized for an 80x24 terminal (~24 lines with the lea-view line,
-no line over 80 columns)
+Output fits an 80x24 terminal without scrolling: 18 lines when healthy
+(2026-10-14), leaving ~5 rows for WARN/problem lines; no line over 80
+columns
 and colorized (green OK / red FAIL / yellow WARN/STALE) when run
 interactively. Colors auto-disable when output is piped/redirected (not a
 tty) or when `NO_COLOR` is set (https://no-color.org).

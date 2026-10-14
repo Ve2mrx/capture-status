@@ -182,16 +182,33 @@ if [ "$screen_running" -eq 1 ]; then
 	fi
 fi
 
+# Last few MEANINGFUL lines of the SiT-calib screen, not a raw tail: the
+# raw tail is mostly once-a-second "GNSS>>" traffic, wrapped fragments of
+# it and blank lines, and it pushed the output past 24 rows (2026-10-14).
+# Kept: the wait/countdown lines and anything get-data.py prints when
+# something is wrong (WARNING..., "Error parsing...", "Fatal error...",
+# "Reader thread stopped..."). The hardcopy is the visible screen only, so
+# an old error that has scrolled off is not shown - the alert mail and
+# ~/lea-view_errors.log / ~/parsed_records_errors.log are the record.
+# At most 4 lines: the 2 latest problem lines, then the latest wait line and
+# latest countdown line (each prints every second - one of each is enough).
 if [ "$screen_running" -eq 1 ]; then
-	printf "       %sRecent output:%s\n" "$DIM" "$RESET"
 	hardcopy=$(mktemp)
 	if screen -S SiT-calib -X hardcopy "$hardcopy" 2>/dev/null && [ -s "$hardcopy" ]; then
-		tail -n 6 "$hardcopy" | cut -c1-73 | sed "s/^/       ${DIM}/; s/\$/${RESET}/"
+		awk '
+			/Waiting for TOW/ { wait = $0; next }
+			/Time to go/      { ttg = $0; next }
+			/WARN|[Ee]rror|Fatal|stopped|Terminated/ { p1 = p2; p2 = $0 }
+			END {
+				if (p1 != "") print p1
+				if (p2 != "") print p2
+				if (wait != "") print wait
+				if (ttg != "") print ttg
+			}' "$hardcopy" | cut -c1-73 | sed "s/^/       ${DIM}/; s/\$/${RESET}/"
 	fi
 	rm -f "$hardcopy"
 fi
 
-echo
 rule
 if [ "$overall_ok" -eq 1 ]; then
 	printf '%s%s%s\n' "${BOLD}${GREEN}" "GO - everything looks healthy." "$RESET"
