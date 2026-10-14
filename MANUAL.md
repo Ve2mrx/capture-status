@@ -55,10 +55,19 @@ Exits `0` for GO, `1` for NO-GO. Checks, in order:
   `interval`) — a `STALE` result means a reboot *right now* would need
   manual TOW entry (see mbt-ubx-apps' project memory
   `restart-calib-manual-tow`), not that anything is currently broken.
+- **Since 2026-10-14: the `lea-view` log** (`~/lea-view.csv`, a row a
+  minute from `get-data.py --lea-view` - see `mbt-ubx-apps/MANUAL.md`),
+  checked only while the screen runs. **WARN** if the file is missing or
+  older than `LEA_VIEW_STALE_MIN` (5 min), and if `~/lea-view_errors.log`
+  was written in the last 24 h (shows the last `#N <error>`). The age check
+  is the one that matters: the error log only catches failures that raise,
+  while a logger that silently writes nothing leaves only a stale file.
+  WARN, not FAIL, for the same reason as health telemetry.
 - Last ~6 lines of the `SiT-calib` screen's terminal output, via
   `screen -S SiT-calib -X hardcopy` (a snapshot, no need to attach).
 
-Output is sized for an 80x24 terminal (~22 lines, no line over 80 columns)
+Output is sized for an 80x24 terminal (~24 lines with the lea-view line,
+no line over 80 columns)
 and colorized (green OK / red FAIL / yellow WARN/STALE) when run
 interactively. Colors auto-disable when output is piped/redirected (not a
 tty) or when `NO_COLOR` is set (https://no-color.org).
@@ -71,6 +80,7 @@ tty) or when `NO_COLOR` is set (https://no-color.org).
 | `~/project/SiT5721/SiT-save_status.txt` | Read for the last save snapshot |
 | `~/SiT-calib_state.json` | Read for capture-state freshness |
 | `~/sit-health-24h.json` | Read for the health-telemetry WARN check (since 2026-08-01) |
+| `~/lea-view.csv`, `~/lea-view_errors.log` | Read (mtime only, plus the error log's last line) for the lea-view WARN check (since 2026-10-14) |
 
 ## Known issues / troubleshooting log
 

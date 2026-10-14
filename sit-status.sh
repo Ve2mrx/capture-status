@@ -16,6 +16,9 @@ CALIB_STATEFILE=~/SiT-calib_state.json
 SAVE_STATUS_FILE="$SIT5721_DIR/SiT-save_status.txt"
 HEALTH_JSON=~/sit-health-24h.json
 HEALTH_STALE_MIN=30  # sampler runs every 10m (save-sit5721.timer); 30m allows for one missed run
+LEA_VIEW_CSV=~/lea-view.csv
+LEA_VIEW_ERRLOG=~/lea-view_errors.log
+LEA_VIEW_STALE_MIN=5  # a row a minute; 5m tolerates a get-data.py restart
 
 # Colors only for a real terminal - not when redirected/piped (e.g. into a
 # log or journalctl) and not when NO_COLOR is set (https://no-color.org).
@@ -152,6 +155,31 @@ print(f\"TOW {d['TOW_selected']} (week {d['week']}), saved {age_str} ago, {note}
 	printf "       %s\n" "$state_line"
 else
 	printf "       %s\n" "(no state file at $CALIB_STATEFILE)"
+fi
+
+# lea-view log (mbt-ubx-apps lea_view.py, TODO B8): get-data.py --lea-view
+# appends a row a minute. Its own error log only catches failures that
+# raise; a logger that silently writes nothing (TIM-TOS never valid, option
+# dropped from start-get-data.sh) shows only as a stale file - hence the age
+# check. WARN, not FAIL: it is diagnostic, the capture does not depend on it.
+# Skipped when the screen is down - that is already a FAIL above.
+if [ "$screen_running" -eq 1 ]; then
+	if [ -f "$LEA_VIEW_CSV" ]; then
+		age_min=$(( ($(date +%s) - $(stat -c %Y "$LEA_VIEW_CSV")) / 60 ))
+		if [ "$age_min" -gt "$LEA_VIEW_STALE_MIN" ]; then
+			warn "lea-view: last row ${age_min}m old (writes every minute - is --lea-view passed?)"
+		else
+			ok "lea-view: last row ${age_min}m ago"
+		fi
+	else
+		warn "lea-view: no $LEA_VIEW_CSV (start-get-data.sh without --lea-view?)"
+	fi
+	if [ -f "$LEA_VIEW_ERRLOG" ] && [ -n "$(find "$LEA_VIEW_ERRLOG" -mmin -1440 2>/dev/null)" ]; then
+		# "<iso> lea-view error #N (<path>): <err> - capture unaffected" -> "#N <err>"
+		warn "lea-view: errors in 24h, last $(tail -n 1 "$LEA_VIEW_ERRLOG" |
+			sed 's/^[^ ]* lea-view error \(#[0-9]*\) ([^)]*): /\1 /; s/ - capture unaffected$//' |
+			cut -c1-45)"
+	fi
 fi
 
 if [ "$screen_running" -eq 1 ]; then
